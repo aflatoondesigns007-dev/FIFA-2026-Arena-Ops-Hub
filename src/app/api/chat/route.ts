@@ -2,8 +2,14 @@ import { getAIConciergeReply } from '../../simulatorData';
 
 export async function POST(req: Request) {
   try {
-    const { message, scenario } = await req.json();
-    const reply = getAIConciergeReply(message, scenario || 'normal');
+    const { message, scenario, lang } = await req.json();
+    
+    if (!message || typeof message !== 'string') {
+      return new Response("Invalid message format.", { status: 400 });
+    }
+    const sanitizedMsg = message.trim().slice(0, 1000);
+
+    const reply = getAIConciergeReply(sanitizedMsg, scenario || 'normal', lang || 'en');
 
     const encoder = new TextEncoder();
     const stream = new ReadableStream({

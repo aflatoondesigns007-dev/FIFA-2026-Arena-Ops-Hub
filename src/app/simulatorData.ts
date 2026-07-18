@@ -242,31 +242,97 @@ export const MOCK_BOT_REPLIES: { keywords: string[]; response: string }[] = [
   }
 ];
 
-export const getAIConciergeReply = (query: string, activeScenario: string): string => {
+const TRANSLATIONS: { [key: string]: { es: string; fr: string } } = {
+  greeting: {
+    es: "¡Hola! Soy tu **Conserje del Estadio FIFA 2026**. Puedo ayudarte con la navegación, tiempos de espera, transporte o accesibilidad. ¿Cómo te puedo ayudar hoy?",
+    fr: "Bonjour ! Je suis votre **Concierge de l'Arène FIFA 2026**. Je peux vous aider pour la navigation, le transport ou l'accessibilité. Comment puis-je vous aider aujourd'hui ?"
+  },
+  gate: {
+    es: "Puedes encontrar tu puerta de entrada impresa en tu billete móvil. Normalmente, la **Puerta A** sirve a las secciones 101-120, la **Puerta B** a las 121-140 y la **Puerta C** a las 141-160. ¡Comprueba el mapa interactivo para ver la ubicación de las puertas!",
+    fr: "Vous trouverez votre porte d'entrée sur votre billet. Normalement, la **Porte A** dessert les sections 101-120, la **Porte B** les 121-140 et la **Porte C** les 141-160. Vérifiez le plan interactif !"
+  },
+  weather: {
+    es: "Los paraguas **no están permitidos** dentro del estadio. Sin embargo, hay chubasqueros disponibles en los puestos de merchandising. Utiliza las rutas cubiertas en **verde** en el mapa si llueve.",
+    fr: "Les parapluies ne sont **pas autorisés** dans les tribunes. Des ponchos de pluie sont disponibles dans les stands de merchandising. Utilisez les passages couverts en **vert** sur le plan."
+  },
+  accessibility: {
+    es: "El MetLife Stadium cumple plenamente con la normativa ADA. Todas las entradas tienen rampas de acceso. Los **ascensores** están cerca de las secciones 104, 124 y 144. Activa la capa de **Accesibilidad (♿)** en tu mapa.",
+    fr: "Le MetLife Stadium est entièrement accessible (normes ADA). Des rampes sont disponibles à toutes les entrées. Les **ascenseurs** sont situés près des sections 104, 124 et 144. Activez le calque **Accessibilité (♿)**."
+  },
+  food: {
+    es: "Las concesiones de comida están por todos los niveles. Prueba **World Cup Grill** (Sec 116) o **Taco Arena** (Sec 132). Activa la capa de **Servicios (🍴)** en el mapa para ver la más cercana.",
+    fr: "Des stands de nourriture sont disponibles à tous les niveaux. Essayez le **World Cup Grill** (Sec 116) ou **Taco Arena** (Sec 132). Activez le calque **Services (🍴)** pour les localiser."
+  },
+  transit: {
+    es: "Para salir, el **MetLife Express Rail** sale de la estación frente a la Puerta A. Los autobuses para el parking G salen de la Puerta B. La parada de rideshare está en la **Plaza de Rideshare 1**. ¡Mira el programador en directo!",
+    fr: "Pour le retour, le **MetLife Express Rail** part de la gare située devant la Porte A. Les navettes pour le parking G partent de la Porte B. Les covoiturages partent de la **Plaza 1**. Consultez notre programmateur en direct !"
+  },
+  sustainability: {
+    es: "¡Hagamos de este el Mundial más verde! Separa la basura: **Contenedores azules** para plásticos y latas, y **Contenedores verdes** para compost. ¡Escanea tu código de vaso para ganar recompensas!",
+    fr: "Faisons de cette Coupe du Monde la plus verte ! Triez vos déchets : **Bacs bleus** pour le plastique/cannettes, **Bacs verts** pour le compost. Scannez votre gobelet pour gagner des points !"
+  },
+  fallback: {
+    es: "No estoy seguro de eso. Intenta preguntar sobre 'rutas accesibles', 'colas en las puertas', 'horarios de trenes' o 'comida'. ¡También puedes ver el mapa!",
+    fr: "Je ne suis pas sûr de comprendre. Demandez par exemple 'rampes d'accès', 'temps d'attente aux portes', 'horaires des trains' ou 'nourriture'. Regardez aussi le plan !"
+  },
+  rain_transit: {
+    es: "⚠️ **Alerta:** Debido a la fuerte lluvia, el **MetLife Express Rail** tiene retrasos de unos 25 minutos. El servicio de rideshare está suspendido temporalmente. Recomendamos refugiarse en el Concourse Oeste.",
+    fr: "⚠️ **Alerte :** En raison des fortes pluies, le **MetLife Express Rail** subit des retards d'environ 25 minutes. Les covoiturages sont suspendus. Nous recommandons de vous abriter dans le Concourse Ouest."
+  },
+  rain_crowd: {
+    es: "⚠️ **Actualización por lluvia:** Los pasillos del Oeste y la Puerta A están muy concurridos. Sugerimos usar las puertas D/E o esperar en las zonas cubiertas.",
+    fr: "⚠️ **Mise à jour Pluie :** Les concourses Ouest et la Porte A sont très encombrés. Nous suggérons d'utiliser la Porte D/E ou d'attendre dans les espaces couverts."
+  },
+  overcrowd_gate: {
+    es: "⚠️ **Advertencia Puerta C:** El tiempo de espera en la Puerta C es de **48 minutos**. Por favor, desvíese a la **Puerta B** (5 min de espera) o la **Puerta D** (8 min de espera). Use el mapa para ver los carriles peatonales directos.",
+    fr: "⚠️ **Alerte Porte C :** Le temps d'attente à la Porte C est actuellement de **48 minutes**. Veuillez vous diriger vers la **Porte B** (5 min d'attente) ou la **Porte D** (8 min d'attente). Utilisez le plan pour voir les chemins piétons."
+  }
+};
+
+export const getAIConciergeReply = (query: string, activeScenario: string, lang: string = 'en'): string => {
   const q = query.toLowerCase();
-  
-  // Specific scenario updates in replies
+  const isEs = lang === 'es';
+  const isFr = lang === 'fr';
+  const useTranslation = isEs || isFr;
+
+  // 1. Scenario Overrides
   if (activeScenario === 'rain') {
-    if (q.includes('train') || q.includes('rail') || q.includes('transit') || q.includes('leave')) {
-      return "⚠️ **Alert:** Due to heavy rain, the **MetLife Express Rail** is experiencing delays of approximately 25 minutes. Rideshares are temporarily suspended at the plaza. We recommend sheltering in the covered West Concourse or taking the Lot C Shuttle.";
+    if (q.includes('train') || q.includes('rail') || q.includes('transit') || q.includes('leave') || q.includes('tren') || q.includes('navette')) {
+      return useTranslation ? TRANSLATIONS.rain_transit[lang as 'es'|'fr'] : "⚠️ **Alert:** Due to heavy rain, the **MetLife Express Rail** is experiencing delays of approximately 25 minutes. Rideshares are temporarily suspended at the plaza. We recommend sheltering in the covered West Concourse or taking the Lot C Shuttle.";
     }
-    if (q.includes('crowd') || q.includes('busy') || q.includes('congested')) {
-      return "⚠️ **Heavy Rain Update:** Concourses on the West and Gate A are currently high-density. We suggest using Gate D/E or waiting inside the covered lounge areas until crowd levels disperse.";
+    if (q.includes('crowd') || q.includes('busy') || q.includes('congested') || q.includes('mucha') || q.includes('monde')) {
+      return useTranslation ? TRANSLATIONS.rain_crowd[lang as 'es'|'fr'] : "⚠️ **Heavy Rain Update:** Concourses on the West and Gate A are currently high-density. We suggest using Gate D/E or waiting inside the covered lounge areas until crowd levels disperse.";
     }
   }
 
   if (activeScenario === 'overcrowd') {
-    if (q.includes('gate c') || q.includes('queue') || q.includes('wait')) {
-      return "⚠️ **Gate C Warning:** Queue wait times at Gate C are currently **48 minutes**. Please reroute to **Gate B** (5 min wait) or **Gate D** (8 min wait). Scan the map to find direct pedestrian bypass lanes.";
+    if (q.includes('gate c') || q.includes('queue') || q.includes('wait') || q.includes('puerta c') || q.includes('porte c')) {
+      return useTranslation ? TRANSLATIONS.overcrowd_gate[lang as 'es'|'fr'] : "⚠️ **Gate C Warning:** Queue wait times at Gate C are currently **48 minutes**. Please reroute to **Gate B** (5 min wait) or **Gate D** (8 min wait). Scan the map to find direct pedestrian bypass lanes.";
     }
   }
 
-  // General check
-  for (const item of MOCK_BOT_REPLIES) {
-    if (item.keywords.some(k => q.includes(k))) {
-      return item.response;
-    }
+  // 2. Keyword check
+  if (q.includes('hi') || q.includes('hello') || q.includes('hey') || q.includes('start') || q.includes('hola') || q.includes('bonjour')) {
+    return useTranslation ? TRANSLATIONS.greeting[lang as 'es'|'fr'] : MOCK_BOT_REPLIES[0].response;
+  }
+  if (q.includes('gate') || q.includes('entrance') || q.includes('puerta') || q.includes('porte')) {
+    return useTranslation ? TRANSLATIONS.gate[lang as 'es'|'fr'] : MOCK_BOT_REPLIES[1].response;
+  }
+  if (q.includes('rain') || q.includes('weather') || q.includes('umbrella') || q.includes('lluvia') || q.includes('pluie')) {
+    return useTranslation ? TRANSLATIONS.weather[lang as 'es'|'fr'] : MOCK_BOT_REPLIES[2].response;
+  }
+  if (q.includes('wheelchair') || q.includes('accessible') || q.includes('ada') || q.includes('ramp') || q.includes('elevator') || q.includes('rampa') || q.includes('ascensor') || q.includes('fauteuil')) {
+    return useTranslation ? TRANSLATIONS.accessibility[lang as 'es'|'fr'] : MOCK_BOT_REPLIES[3].response;
+  }
+  if (q.includes('food') || q.includes('water') || q.includes('beer') || q.includes('concession') || q.includes('eat') || q.includes('comida') || q.includes('manger')) {
+    return useTranslation ? TRANSLATIONS.food[lang as 'es'|'fr'] : MOCK_BOT_REPLIES[4].response;
+  }
+  if (q.includes('transit') || q.includes('train') || q.includes('shuttle') || q.includes('bus') || q.includes('subway') || q.includes('tren') || q.includes('navette')) {
+    return useTranslation ? TRANSLATIONS.transit[lang as 'es'|'fr'] : MOCK_BOT_REPLIES[5].response;
+  }
+  if (q.includes('recycle') || q.includes('green') || q.includes('sustainability') || q.includes('eco') || q.includes('reciclar') || q.includes('recycler')) {
+    return useTranslation ? TRANSLATIONS.sustainability[lang as 'es'|'fr'] : MOCK_BOT_REPLIES[6].response;
   }
 
-  return "I'm not sure about that. Try asking about 'accessible routes', 'gate queues', 'train schedules', or 'merchandise & food'. You can also view details on the interactive map layers!";
+  return useTranslation ? TRANSLATIONS.fallback[lang as 'es'|'fr'] : "I'm not sure about that. Try asking about 'accessible routes', 'gate queues', 'train schedules', or 'merchandise & food'. You can also view details on the interactive map layers!";
 };

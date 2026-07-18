@@ -4,24 +4,32 @@ export async function POST(req: Request) {
   try {
     const { incident, scenario } = await req.json();
     
-    if (!incident) {
-      return NextResponse.json({ error: "No incident data provided" }, { status: 400 });
+    if (!incident || typeof incident !== 'object') {
+      return NextResponse.json({ error: "Invalid incident data" }, { status: 400 });
+    }
+    
+    if (!incident.title || !incident.location || !incident.priority) {
+      return NextResponse.json({ error: "Missing required incident fields" }, { status: 400 });
     }
 
+    const sanitizedTitle = String(incident.title).trim().slice(0, 200);
+    const sanitizedLocation = String(incident.location).trim().slice(0, 200);
+    const sanitizedPriority = String(incident.priority).trim().slice(0, 50);
+
     // Dynamic GenAI operational analysis
-    let crew = "General Operations Crew - Zone " + incident.location.charAt(0);
-    let priorityCode = incident.priority.toUpperCase();
+    let crew = "General Operations Crew - Zone " + sanitizedLocation.charAt(0);
+    let priorityCode = sanitizedPriority.toUpperCase();
     let eta = "4-6 minutes";
     let accessibilityBrief = "";
     let specialWarning = "";
 
     // Generate specific recommendations based on scenario and incident details
-    if (incident.priority === 'high') {
+    if (sanitizedPriority.toLowerCase() === 'high') {
       crew = "Rapid Response Team Alpha (RRT-A)";
       eta = "1-3 minutes";
     }
 
-    if (incident.title.toLowerCase().includes("wheelchair") || incident.location.includes("ADA")) {
+    if (sanitizedTitle.toLowerCase().includes("wheelchair") || sanitizedLocation.includes("ADA")) {
       crew = "Accessibility Assistance Team (Coordinator Clara + Lead Support)";
       eta = "2-4 minutes";
       accessibilityBrief = "\n*   **Accessibility Action:** Ensure passenger dignity, provide standard transit seat replacement if required, and check that nearby ramps are clear.";
@@ -36,13 +44,13 @@ export async function POST(req: Request) {
     const planText = `### GenAI Operational Dispatch Briefing
 *   **Assigned Unit:** ${crew}
 *   **Priority Dispatch Level:** ${priorityCode}
-*   **Target Location:** ${incident.location}
+*   **Target Location:** ${sanitizedLocation}
 *   **Target Response ETA:** ${eta}
 
 #### Tactical Action Steps:
 1. Deploy ${crew} immediately.
 2. Secure the perimeter to prevent secondary incidents.
-3. Resolve the primary issue ("${incident.title}").
+3. Resolve the primary issue ("${sanitizedTitle}").
 4. Signal back to command post when clear.${accessibilityBrief}${specialWarning}`;
 
     return NextResponse.json({ plan: planText });

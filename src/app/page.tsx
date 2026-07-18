@@ -47,15 +47,26 @@ export default function Home() {
   const [isAnalyzingIncident, setIsAnalyzingIncident] = useState<boolean>(false);
   
   // Fan Interaction State
-  const [messages, setMessages] = useState<Message[]>([
-    { sender: 'bot', text: 'Hello! I am your **FIFA 2026 Arena Concierge**. I can help you with stadium navigation, queue times, transit routes, or accessibility services. Type your question below!' }
-  ]);
+  const [lang, setLang] = useState<'en' | 'es' | 'fr'>('en');
+  const [messages, setMessages] = useState<Message[]>([]);
   const [chatInput, setChatInput] = useState<string>('');
   const [isBotTyping, setIsBotTyping] = useState<boolean>(false);
   const [fanPoints, setFanPoints] = useState<number>(120); // Sustainability game points
   const [audioAnnounce, setAudioAnnounce] = useState<boolean>(false); // Audio guide mode
 
   const chatEndRef = useRef<HTMLDivElement>(null);
+
+  // Sync initial bot greeting with language selection
+  useEffect(() => {
+    const greetings = {
+      en: 'Hello! I am your **FIFA 2026 Arena Concierge**. I can help you with stadium navigation, queue times, transit routes, or accessibility services. Type your question below!',
+      es: '¡Hola! Soy tu **Conserje del Estadio FIFA 2026**. Puedo ayudarte con la navegación del estadio, tiempos de espera, transporte o servicios de accesibilidad. ¡Escribe abajo!',
+      fr: "Bonjour ! Je suis votre **Concierge de l'Arène FIFA 2026**. Je peux vous aider pour la navigation, le transport ou l'accessibilité. Écrivez ci-dessous !"
+    };
+    setMessages([
+      { sender: 'bot', text: greetings[lang] }
+    ]);
+  }, [lang]);
   const [toast, setToast] = useState<{ title: string; message: string; type: 'success' | 'info' | 'warning' } | null>(null);
 
   useEffect(() => {
@@ -117,14 +128,14 @@ export default function Home() {
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text, scenario: activeScenario })
+        body: JSON.stringify({ message: text, scenario: activeScenario, lang })
       });
 
       setIsBotTyping(false);
 
       if (!response.body) {
         // Fallback to offline reply
-        const fallback = getAIConciergeReply(text, activeScenario);
+        const fallback = getAIConciergeReply(text, activeScenario, lang);
         setMessages(prev => [...prev, { sender: 'bot', text: fallback }]);
         return;
       }
@@ -161,7 +172,7 @@ export default function Home() {
     } catch (e) {
       console.error(e);
       setIsBotTyping(false);
-      const fallback = getAIConciergeReply(text, activeScenario);
+      const fallback = getAIConciergeReply(text, activeScenario, lang);
       setMessages(prev => [...prev, { sender: 'bot', text: fallback }]);
     }
   };
@@ -256,7 +267,31 @@ export default function Home() {
         </div>
 
         {/* View controller & current mode indicators */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {/* Language Selector */}
+          <div className="toggle-views" style={{ marginRight: '4px' }}>
+            <select
+              value={lang}
+              onChange={(e) => setLang(e.target.value as 'en' | 'es' | 'fr')}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: 'var(--text-primary)',
+                fontFamily: 'var(--font-sans)',
+                fontSize: '0.8rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                outline: 'none',
+                padding: '4px 8px'
+              }}
+              aria-label="Select Language"
+            >
+              <option value="en" style={{ background: '#0e1320' }}>🇬🇧 EN</option>
+              <option value="es" style={{ background: '#0e1320' }}>🇪🇸 ES</option>
+              <option value="fr" style={{ background: '#0e1320' }}>🇫🇷 FR</option>
+            </select>
+          </div>
+
           <div className="toggle-views">
             <button 
               className={`toggle-btn ${viewMode === 'fan' ? 'active' : ''}`}
@@ -351,7 +386,7 @@ export default function Home() {
               </div>
 
               <div className="chat-container">
-                <div className="chat-history">
+                <div className="chat-history" aria-live="polite">
                   {messages.map((msg, index) => (
                     <div key={index} className={`chat-bubble ${msg.sender}`}>
                       {msg.text.split('\n\n').map((para, pi) => (
@@ -375,22 +410,41 @@ export default function Home() {
                 </div>
 
                 <div className="quick-questions">
-                  <button className="quick-q-btn" onClick={() => handleSendMessage("Where is the nearest ADA elevator?")}>♿ ADA Ramps & Elevators</button>
-                  <button className="quick-q-btn" onClick={() => handleSendMessage("How do I get to public transit after the match?")}>🚆 Public Transit Routes</button>
-                  <button className="quick-q-btn" onClick={() => handleSendMessage("Where is the food section?")}>🍴 Food Concessions</button>
-                  <button className="quick-q-btn" onClick={() => handleSendMessage("How does recycling work here?")}>♻️ Sustainability Cup rewards</button>
+                  {lang === 'es' ? (
+                    <>
+                      <button className="quick-q-btn" onClick={() => handleSendMessage("¿Dónde está el ascensor ADA más cercano?")}>♿ Rampas y Ascensores</button>
+                      <button className="quick-q-btn" onClick={() => handleSendMessage("¿Cómo llego al transporte público?")}>🚆 Rutas de Tránsito</button>
+                      <button className="quick-q-btn" onClick={() => handleSendMessage("¿Dónde está la sección de comida?")}>🍴 Concesiones de Comida</button>
+                      <button className="quick-q-btn" onClick={() => handleSendMessage("¿Cómo funciona el reciclaje aquí?")}>♻️ Recompensas de Reciclaje</button>
+                    </>
+                  ) : lang === 'fr' ? (
+                    <>
+                      <button className="quick-q-btn" onClick={() => handleSendMessage("Où se trouve l'ascenseur ADA le plus proche ?")}>♿ Rampes et Ascenseurs</button>
+                      <button className="quick-q-btn" onClick={() => handleSendMessage("Comment accéder aux transports publics ?")}>🚆 Transports Publics</button>
+                      <button className="quick-q-btn" onClick={() => handleSendMessage("Où se trouve la zone de restauration ?")}>🍴 Restauration & Stands</button>
+                      <button className="quick-q-btn" onClick={() => handleSendMessage("Comment recycler mon gobelet ?")}>♻️ Points de Recyclage</button>
+                    </>
+                  ) : (
+                    <>
+                      <button className="quick-q-btn" onClick={() => handleSendMessage("Where is the nearest ADA elevator?")}>♿ ADA Ramps & Elevators</button>
+                      <button className="quick-q-btn" onClick={() => handleSendMessage("How do I get to public transit after the match?")}>🚆 Public Transit Routes</button>
+                      <button className="quick-q-btn" onClick={() => handleSendMessage("Where is the food section?")}>🍴 Food Concessions</button>
+                      <button className="quick-q-btn" onClick={() => handleSendMessage("How does recycling work here?")}>♻️ Sustainability Cup rewards</button>
+                    </>
+                  )}
                 </div>
 
                 <div className="chat-input-area">
                   <input 
                     type="text" 
                     className="chat-input" 
-                    placeholder="Ask about gates, transit, food, sensory rooms..." 
+                    placeholder={lang === 'es' ? "Pregunta sobre transporte, accesibilidad, comida..." : lang === 'fr' ? "Poser une question sur le transport, l'accessibilité..." : "Ask about gates, transit, food, sensory rooms..."} 
                     value={chatInput}
                     onChange={(e) => setChatInput(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleSendMessage(chatInput)}
+                    aria-label="Chat input query"
                   />
-                  <button className="chat-send-btn" onClick={() => handleSendMessage(chatInput)}>
+                  <button className="chat-send-btn" onClick={() => handleSendMessage(chatInput)} aria-label="Send message">
                     <Send size={14} />
                   </button>
                 </div>
