@@ -7,7 +7,15 @@ export async function POST(req: Request) {
     if (!message || typeof message !== 'string') {
       return new Response("Invalid message format.", { status: 400 });
     }
-    const sanitizedMsg = message.trim().slice(0, 1000);
+    
+    const escapedMsg = message
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+
+    const sanitizedMsg = escapedMsg.trim().slice(0, 1000);
 
     const reply = getAIConciergeReply(sanitizedMsg, scenario || 'normal', lang || 'en');
 

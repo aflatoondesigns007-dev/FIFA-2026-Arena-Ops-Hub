@@ -12,9 +12,16 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing required incident fields" }, { status: 400 });
     }
 
-    const sanitizedTitle = String(incident.title).trim().slice(0, 200);
-    const sanitizedLocation = String(incident.location).trim().slice(0, 200);
-    const sanitizedPriority = String(incident.priority).trim().slice(0, 50);
+    const escapeHtmlStr = (str: string) => str
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+
+    const sanitizedTitle = escapeHtmlStr(String(incident.title).trim().slice(0, 200));
+    const sanitizedLocation = escapeHtmlStr(String(incident.location).trim().slice(0, 200));
+    const sanitizedPriority = escapeHtmlStr(String(incident.priority).trim().slice(0, 50));
 
     // Dynamic GenAI operational analysis
     let crew = "General Operations Crew - Zone " + sanitizedLocation.charAt(0);
