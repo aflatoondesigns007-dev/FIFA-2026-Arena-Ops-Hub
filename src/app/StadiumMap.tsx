@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { Incident } from './simulatorData';
-import { HelpCircle, Info, Accessibility, Coffee, ShieldAlert, Sparkles } from 'lucide-react';
+
 
 interface StadiumMapProps {
   activeLayer: 'heatmap' | 'amenities' | 'accessibility' | 'security';

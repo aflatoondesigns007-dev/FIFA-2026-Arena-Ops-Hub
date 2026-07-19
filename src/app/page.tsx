@@ -58,7 +58,9 @@ export default function Home() {
   
   // Fan Interaction State
   const [lang, setLang] = useState<'en' | 'es' | 'fr'>('en');
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<Message[]>([
+    { sender: 'bot', text: 'Hello! I am your **FIFA 2026 Arena Concierge**. I can help you with stadium navigation, queue times, transit routes, or accessibility services. Type your question below!' }
+  ]);
   const [chatInput, setChatInput] = useState<string>('');
   const [isBotTyping, setIsBotTyping] = useState<boolean>(false);
   const [fanPoints, setFanPoints] = useState<number>(120); 
@@ -81,12 +83,51 @@ export default function Home() {
     setToast({ title, message, type });
   }, []);
 
+
+
   /**
-   * Pushes simulated announcements directly into the user chatbot history feed.
+   * Handles user switching language dropdown and updates greetings
    */
-  const pushSystemAlert = useCallback((text: string) => {
-    setMessages(prev => [...prev, { sender: 'bot', text }]);
+  const handleSelectLanguage = useCallback((newLang: 'en' | 'es' | 'fr') => {
+    setLang(newLang);
+    const greetings = {
+      en: 'Hello! I am your **FIFA 2026 Arena Concierge**. I can help you with stadium navigation, queue times, transit routes, or accessibility services. Type your question below!',
+      es: '¡Hola! Soy tu **Conserje del Estadio FIFA 2026**. Puedo ayudarte con la navegación del estadio, tiempos de espera, transporte o servicios de accesibilidad. ¡Escribe abajo!',
+      fr: "Bonjour ! Je suis votre **Concierge de l'Arène FIFA 2026**. Je peux vous aider pour la navigation, le transport ou l'accessibilité. Écrivez ci-dessous !"
+    };
+    setMessages(prev => {
+      if (prev.length > 0 && prev[0].sender === 'bot') {
+        const updated = [...prev];
+        updated[0] = { sender: 'bot', text: greetings[newLang] };
+        return updated;
+      }
+      return [{ sender: 'bot', text: greetings[newLang] }, ...prev];
+    });
   }, []);
+
+  /**
+   * Transitions active scenario operations, metrics, and systems warning broadcasts
+   */
+  const handleSelectScenario = useCallback((key: string) => {
+    setActiveScenario(key);
+    const data = SCENARIOS[key];
+    if (data) {
+      setIncidents(data.incidentsList.map(inc => ({ ...inc }))); 
+      setTransitList(data.transitList);
+      setSelectedIncidentId(null);
+      setSelectedIncidentPlan('');
+      
+      triggerToast(`${data.name} Active`, data.description, key === 'normal' ? 'info' : 'warning');
+      
+      if (key === 'rain') {
+        setMessages(prev => [...prev, { sender: 'bot', text: "🌧️ Heavy Rain Warning: Outdoor transit loops are experiencing delays. Covered walkway overlays are now highlighted on the map." }]);
+      } else if (key === 'overcrowd') {
+        setMessages(prev => [...prev, { sender: 'bot', text: "🚨 Crowding Alert: Gate C is extremely congested. Directing traffic to Gates B & D." }]);
+      } else if (key === 'vip') {
+        setMessages(prev => [...prev, { sender: 'bot', text: "👑 VIP Convoy: VVIP security corridor active. Some pedestrian access corridors near West Plaza are temporarily closed." }]);
+      }
+    }
+  }, [triggerToast]);
 
   /**
    * Sends user question to streaming mock LLM chatbot.
@@ -169,7 +210,7 @@ export default function Home() {
       } else {
         setSelectedIncidentPlan("Error generating dispatch instructions.");
       }
-    } catch (e) {
+    } catch {
       setIsAnalyzingIncident(false);
       setSelectedIncidentPlan("Offline: Proceed immediately with standard protocols. Support dispatcher alert sent.");
     }
@@ -211,39 +252,6 @@ export default function Home() {
 
   // --- EFFECTS ---
 
-  // Sync initial bot greeting with language selection
-  useEffect(() => {
-    const greetings = {
-      en: 'Hello! I am your **FIFA 2026 Arena Concierge**. I can help you with stadium navigation, queue times, transit routes, or accessibility services. Type your question below!',
-      es: '¡Hola! Soy tu **Conserje del Estadio FIFA 2026**. Puedo ayudarte con la navegación del estadio, tiempos de espera, transporte o servicios de accesibilidad. ¡Escribe abajo!',
-      fr: "Bonjour ! Je suis votre **Concierge de l'Arène FIFA 2026**. Je peux vous aider pour la navigation, le transport ou l'accessibilité. Écrivez ci-dessous !"
-    };
-    setMessages([
-      { sender: 'bot', text: greetings[lang] }
-    ]);
-  }, [lang]);
-
-  // Sync scenario metrics and auto-trigger alerts
-  useEffect(() => {
-    const data = SCENARIOS[activeScenario];
-    if (data) {
-      setIncidents(data.incidentsList.map(inc => ({ ...inc }))); 
-      setTransitList(data.transitList);
-      setSelectedIncidentId(null);
-      setSelectedIncidentPlan('');
-      
-      triggerToast(`${data.name} Active`, data.description, activeScenario === 'normal' ? 'info' : 'warning');
-      
-      if (activeScenario === 'rain') {
-        pushSystemAlert("🌧️ Heavy Rain Warning: Outdoor transit loops are experiencing delays. Covered walkway overlays are now highlighted on the map.");
-      } else if (activeScenario === 'overcrowd') {
-        pushSystemAlert("🚨 Crowding Alert: Gate C is extremely congested. Directing traffic to Gates B & D.");
-      } else if (activeScenario === 'vip') {
-        pushSystemAlert("👑 VIP Convoy: VVIP security corridor active. Some pedestrian access corridors near West Plaza are temporarily closed.");
-      }
-    }
-  }, [activeScenario, triggerToast, pushSystemAlert]);
-
   // Clear toast notifications timer
   useEffect(() => {
     if (toast) {
@@ -279,7 +287,7 @@ export default function Home() {
           <div className="toggle-views" style={{ marginRight: '4px' }}>
             <select
               value={lang}
-              onChange={(e) => setLang(e.target.value as 'en' | 'es' | 'fr')}
+              onChange={(e) => handleSelectLanguage(e.target.value as 'en' | 'es' | 'fr')}
               style={{
                 background: 'transparent',
                 border: 'none',
@@ -863,7 +871,7 @@ export default function Home() {
                       type="button"
                       key={key}
                       className={`scenario-button ${isActive ? 'active' : ''}`}
-                      onClick={() => setActiveScenario(key)}
+                      onClick={() => handleSelectScenario(key)}
                     >
                       <div>
                         <div className="scenario-title">{scen.name}</div>

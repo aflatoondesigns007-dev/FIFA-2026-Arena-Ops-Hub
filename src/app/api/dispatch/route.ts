@@ -25,7 +25,7 @@ export async function POST(req: Request) {
 
     // Dynamic GenAI operational analysis
     let crew = "General Operations Crew - Zone " + sanitizedLocation.charAt(0);
-    let priorityCode = sanitizedPriority.toUpperCase();
+    const priorityCode = sanitizedPriority.toUpperCase();
     let eta = "4-6 minutes";
     let accessibilityBrief = "";
     let specialWarning = "";
